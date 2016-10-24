@@ -1,0 +1,22 @@
+services:
+    gendoria_command_queue_doctrine_driver.send_driver:
+        class: Gendoria\CommandQueueDoctrineDriverBundle\SendDriver\DoctrineSendDriver
+        arguments: ['%command_queue_serializer%', '@database_connection', '%table_name%', '%pool%']
+
+    gendoria_command_queue_doctrine_driver.worker:
+        class: Gendoria\CommandQueueDoctrineDriverBundle\Worker\DoctrineWorker
+        arguments:
+            - '@event_dispatcher'
+            - '@gendoria_command_queue.processor_factory'
+            - '%command_queue_serializer%'
+            - '%table_name%'
+            - '%pool%'
+            - '@?logger'
+            
+    gendoria_command_queue_doctrine_driver.worker_runner:
+        class: Gendoria\CommandQueueDoctrineDriverBundle\Worker\DoctrineWorkerRunner
+        arguments:
+            - '@worker'
+            - '@database_connection'
+            - '%table_name%'
+            - '%pool%'

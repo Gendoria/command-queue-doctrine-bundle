@@ -1,0 +1,33 @@
+{
+    "name": "gendoria/command-queue-doctrine-bundle",
+    "description": "Doctrine driver for Gendoria Command Queue",
+    "type": "symfony-bundle",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Gendoria",
+            "email": "gendoria@gendoria.pl",
+            "role": "owner"
+        },
+        {
+            "name": "Tomasz Struczyński",
+            "email": "t.struczynski@gmail.com",
+            "role": "developer"
+        }
+    ],
+    "require": {
+        "gendoria/command-queue": "~0.2.0",
+        "gendoria/command-queue-bundle": "0.2.0",
+        "symfony/framework-bundle": "~2.7|~3.0",
+        "doctrine/doctrine-bundle": "~1.2"
+    },
+    "require-dev": {
+        "symfony/phpunit-bridge": ">=2.7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Gendoria\\CommandQueueDoctrineDriverBundle\\": "src/Gendoria/CommandQueueDoctrineDriverBundle"
+        }
+    },
+    "minimum-stability": "stable"    
+}

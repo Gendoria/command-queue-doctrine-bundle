@@ -1,0 +1,37 @@
+build:
+    environment:
+        php: '5.5.38'    
+    tests:
+        before:
+            - 'phpunit'
+filter:
+    excluded_paths: [vendor/*, examples/*, src/Gendoria/*/Tests/*]
+checks:
+    php:
+        code_rating: true
+        duplication: true
+        uppercase_constants: true
+        simplify_boolean_return: true
+        return_doc_comments: true
+        return_doc_comment_if_not_inferrable: true        
+    
+coding_style:
+    php:
+        spaces:
+            around_operators:
+                additive: false
+                concatenation: false
+    
+tools:
+    external_code_coverage: true
+    php_mess_detector: true
+    php_code_sniffer: true
+    sensiolabs_security_checker: true
+    php_code_coverage: true
+    php_pdepend: true
+    php_loc:
+        enabled: true
+        excluded_dirs: [vendor, examples, src/Gendoria/CommandQueueDoctrineDriverBundle/Tests]
+    php_cpd:
+        enabled: true
+        excluded_dirs: [vendor, examples, src/Gendoria/CommandQueueDoctrineDriverBundle/Tests]
