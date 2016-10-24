@@ -8,6 +8,7 @@
 
 namespace Gendoria\CommandQueueDoctrineDriverBundle\Worker;
 
+use DateTime;
 use Doctrine\DBAL\Connection;
 use Doctrine\DBAL\DBALException;
 use Doctrine\DBAL\LockMode;
@@ -184,10 +185,10 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
             $this->connection->beginTransaction();
             $sqlProto = "SELECT * "
                 . " FROM " . $platform->appendLockHint($this->tableName, LockMode::PESSIMISTIC_WRITE)
-                . " WHERE processed = ? AND pool = ? "
+                . " WHERE processed = ? AND pool = ? AND process_after >= ? "
             ;
             $sql = $platform->modifyLimitQuery($sqlProto, 1) . " " . $platform->getWriteLockSQL();
-            $row = $this->connection->fetchAssoc($sql, array(0, $this->pool));
+            $row = $this->connection->fetchAssoc($sql, array(0, $this->pool, new DateTime()), array('integer', 'string', 'datetime'));
 
             if (!$row) {
                 $this->connection->commit();
@@ -226,18 +227,31 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
      * 
      * @param integer $id
      * @param boolean $isBeingProcessed
+     * @param integer $failedRetries
      * @return integer
      */
     private function updateProcessed($id, $isBeingProcessed, $failedRetries = 0)
     {
-        $updateSql = "UPDATE " . $this->tableName . " " .
-            "SET processed = ?, failed_no = ?" .
-            "WHERE id = ?";
         $parameters = array(
             (int)(bool)$isBeingProcessed,
             (int)$id,
             (int)$failedRetries,
         );
-        return $this->connection->executeUpdate($updateSql, $parameters);
+        $types = array(
+            'boolean',
+            'integer',
+            'smallint'
+        );
+        if ($failedRetries > 0) {
+            $processAfter = ", process_after = ?";
+            $parameters[] = new DateTime(time()+20*$failedRetries);
+            $types[] = "datetime";
+        } else {
+            $processAfter = "";
+        }
+        $updateSql = "UPDATE " . $this->tableName
+            . " SET processed = ?, failed_no = ?" . $processAfter
+            . " WHERE id = ?";
+        return $this->connection->executeUpdate($updateSql, $parameters, $types);
     }
 }

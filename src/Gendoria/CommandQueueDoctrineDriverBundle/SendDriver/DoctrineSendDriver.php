@@ -70,7 +70,18 @@ class DoctrineSendDriver implements SendDriverInterface
             'command_class' => $serialized->getCommandClass(),
             'command' => $serialized->getSerializedCommand(),
             'pool' => $this->pool,
+            'failed_no' => 0,
+            'processed' => false,
+            'process_after' => new DateTime(),
         );
-        $this->connection->insert($this->tableName, $data);
+        $types = array(
+            'string',
+            'text',
+            'string',
+            'integer',
+            'boolean',
+            'datetime',
+        );
+        $this->connection->insert($this->tableName, $data, $types);
     }
 }
