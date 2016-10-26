@@ -49,31 +49,43 @@ class GendoriaCommandQueueDoctrineDriverExtension extends Extension
     
     private function loadDrivers(array $config, ContainerBuilder $container)
     {
-        $workerRunner = $container->getDefinition('gendoria_command_queue_doctrine_driver.worker_runner');
         foreach ($config['drivers'] as $driverId => $driver) {
             $serializer = substr($driver['serializer'], 1);
             $connectionService = sprintf('doctrine.dbal.%s_connection', $driver['connection']);
             
-            $newDriver = clone $container->getDefinition('gendoria_command_queue_doctrine_driver.send_driver');
-            $newDriver->replaceArgument(0, new Reference($serializer));
-            $newDriver->replaceArgument(1, new Reference($connectionService));
-            $newDriver->replaceArgument(2, $driver['table_name']);
-            $newDriver->replaceArgument(3, $driverId);
-            $container->setDefinition('gendoria_command_queue_doctrine_driver.driver.'.$driverId, $newDriver);
-
-            $newWorker = clone $container->getDefinition('gendoria_command_queue_doctrine_driver.worker');
-            $newWorker->replaceArgument(2, new Reference($serializer));
-            $newWorker->replaceArgument(3, $driver['table_name']);
-            $newWorker->replaceArgument(4, $driverId);
-            $container->setDefinition('gendoria_command_queue_doctrine_driver.worker.'.$driverId, $newWorker);
-            
-            $newRunner = clone $workerRunner;
-            $newRunner->replaceArgument(0, new Reference('gendoria_command_queue_doctrine_driver.worker.'.$driverId));
-            $newRunner->replaceArgument(1, new Reference($connectionService));
-            $newRunner->replaceArgument(2, $driver['table_name']);
-            $newRunner->replaceArgument(3, $driverId);
-            $newRunner->addTag(WorkerRunnersPass::WORKER_RUNNER_TAG, array('name' => 'doctrine.'.$driverId, 'options' => json_encode($driver)));
-            $container->setDefinition('gendoria_command_queue_doctrine_driver.worker_runner.'.$driverId, $newRunner);
+            $this->prepareSendDriver($container, $driverId, $driver, $connectionService, $serializer);
+            $this->prepareNewWorker($container, $driverId, $driver, $serializer);
+            $this->prepareNewWorkerRunner($container, $driverId, $driver, $connectionService);
         }
     }
+    
+    private function prepareSendDriver(ContainerBuilder $container, $driverId, $driver, $connectionService, $serializer)
+    {
+        $newDriver = clone $container->getDefinition('gendoria_command_queue_doctrine_driver.send_driver');
+        $newDriver->replaceArgument(0, new Reference($serializer));
+        $newDriver->replaceArgument(1, new Reference($connectionService));
+        $newDriver->replaceArgument(2, $driver['table_name']);
+        $newDriver->replaceArgument(3, $driverId);
+        $container->setDefinition('gendoria_command_queue_doctrine_driver.driver.'.$driverId, $newDriver);
+    }
+    
+    private function prepareNewWorker(ContainerBuilder $container, $driverId, $driver, $serializer)
+    {
+        $newWorker = clone $container->getDefinition('gendoria_command_queue_doctrine_driver.worker');
+        $newWorker->replaceArgument(2, new Reference($serializer));
+        $newWorker->replaceArgument(3, $driver['table_name']);
+        $newWorker->replaceArgument(4, $driverId);
+        $container->setDefinition('gendoria_command_queue_doctrine_driver.worker.'.$driverId, $newWorker);
+    }
+    
+    private function prepareNewWorkerRunner(ContainerBuilder $container, $driverId, $driver, $connectionService)
+    {
+        $newRunner = clone $container->getDefinition('gendoria_command_queue_doctrine_driver.worker_runner');
+        $newRunner->replaceArgument(0, new Reference('gendoria_command_queue_doctrine_driver.worker.'.$driverId));
+        $newRunner->replaceArgument(1, new Reference($connectionService));
+        $newRunner->replaceArgument(2, $driver['table_name']);
+        $newRunner->replaceArgument(3, $driverId);
+        $newRunner->addTag(WorkerRunnersPass::WORKER_RUNNER_TAG, array('name' => 'doctrine.'.$driverId, 'options' => json_encode($driver)));
+        $container->setDefinition('gendoria_command_queue_doctrine_driver.worker_runner.'.$driverId, $newRunner);
+    }    
 }
