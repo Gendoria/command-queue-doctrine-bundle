@@ -27,13 +27,13 @@ class DoctrineWorkerRunnerTest extends DbTestCase
         $connection = $this->getDoctrineConnection();
         $runner = new DoctrineWorkerRunner($worker, $connection, 'cmq', 'default');
         $output = new BufferedOutput(Output::VERBOSITY_DEBUG);
-        $worker->expects($this->exactly($initialRowCount))
+        $worker->expects($this->exactly($initialRowCount-1))
             ->method('process');
         
         $runner->run(array('run_times' => $initialRowCount, 'sleep_intervals' => array(0,0)), $output);
         $fetchedOutput = $output->fetch();
         $this->assertContains('Processing command', $fetchedOutput);
-        $this->assertEquals(0, $this->getConnection()->getRowCount('cmq'));
+        $this->assertEquals(1, $this->getConnection()->getRowCount('cmq'));
         $this->assertNotContains('Exception while fetching data', $fetchedOutput);
     }
     
@@ -55,7 +55,7 @@ class DoctrineWorkerRunnerTest extends DbTestCase
         $this->assertContains('Processing command', $fetchedOutput);
         $this->assertContains('Process error', $fetchedOutput);
         $this->assertContains('Command failed too many times, discarding.', $fetchedOutput);
-        $queryTable = $this->getConnection()->createQueryTable('cmq', "SELECT * FROM cmq ORDER BY id");
+        $queryTable = $this->getConnection()->createQueryTable('cmq', "SELECT * FROM cmq WHERE pool='default' ORDER BY id");
         $this->assertEquals(1, $queryTable->getRowCount());
         $row = $queryTable->getRow(0);
         $afterDateTime = new DateTime($row['process_after']);
