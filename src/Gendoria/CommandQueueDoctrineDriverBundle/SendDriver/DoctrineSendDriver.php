@@ -2,6 +2,7 @@
 
 namespace Gendoria\CommandQueueDoctrineDriverBundle\SendDriver;
 
+use DateTime;
 use Doctrine\DBAL\Connection;
 use Gendoria\CommandQueue\Command\CommandInterface;
 use Gendoria\CommandQueue\SendDriver\SendDriverInterface;

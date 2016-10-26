@@ -1,11 +1,10 @@
 build:
     environment:
         php: '5.5.38'    
-    tests:
-        before:
-            - 'phpunit'
+        
 filter:
     excluded_paths: [vendor/*, examples/*, src/Gendoria/*/Tests/*]
+    
 checks:
     php:
         code_rating: true
@@ -23,12 +22,15 @@ coding_style:
                 concatenation: false
     
 tools:
-    external_code_coverage: true
+    external_code_coverage: 
+        timeout: 3600
     php_mess_detector: true
-    php_code_sniffer: true
+    php_code_sniffer: 
+        enabled: true
     sensiolabs_security_checker: true
     php_code_coverage: true
     php_pdepend: true
+    php_analyzer: true
     php_loc:
         enabled: true
         excluded_dirs: [vendor, examples, src/Gendoria/CommandQueueDoctrineDriverBundle/Tests]

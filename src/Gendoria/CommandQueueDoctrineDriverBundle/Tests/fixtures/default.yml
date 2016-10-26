@@ -1,0 +1,9 @@
+cmq:
+    -
+        id: 1
+        command_class: DummyCommand
+        command: '{}'
+        pool: default
+        failed_no: 0
+        processed: 0
+        process_after: null
