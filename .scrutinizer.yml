@@ -1,7 +1,7 @@
 build:
     environment:
         php: '5.5.38'    
-    dependencies:
+    project_setup:
         before:
             - mysql -e 'create database cmq_doctrine_test;'
             - mysql cmq_doctrine_test < src/Gendoria/CommandQueueDoctrineDriverBundle/Tests/fixtures/schema.sql
