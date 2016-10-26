@@ -1,10 +1,11 @@
 build:
     environment:
         php: '5.5.38'    
-    tests:
+    dependencies:
         before:
-            - ./vendor/bin/phpunit
-        
+            - mysql -e 'create database cmq_doctrine_test;'
+            - mysql cmq_doctrine_test < src/Gendoria/CommandQueueDoctrineDriverBundle/Tests/fixtures/schema.sql
+            
 filter:
     excluded_paths: [vendor/*, examples/*, src/Gendoria/*/Tests/*]
     
