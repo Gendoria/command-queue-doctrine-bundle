@@ -1,6 +1,9 @@
 build:
     environment:
         php: '5.5.38'    
+    tests:
+        override:
+            - true
         
 filter:
     excluded_paths: [vendor/*, examples/*, src/Gendoria/*/Tests/*]
