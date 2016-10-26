@@ -2,8 +2,8 @@ build:
     environment:
         php: '5.5.38'    
     tests:
-        override:
-            - true
+        before:
+            - ./vendor/bin/phpunit
         
 filter:
     excluded_paths: [vendor/*, examples/*, src/Gendoria/*/Tests/*]
