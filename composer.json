@@ -17,7 +17,7 @@
     ],
     "require": {
         "gendoria/command-queue": "~0.2.0",
-        "gendoria/command-queue-bundle": "0.2.0",
+        "gendoria/command-queue-bundle": "~0.2.0",
         "symfony/framework-bundle": "~2.7|~3.0",
         "doctrine/doctrine-bundle": "~1.2"
     },
