@@ -63,6 +63,21 @@ class DoctrineWorkerRunnerTest extends DbTestCase
         $this->assertGreaterThan($currentDateTime, $afterDateTime);
     }
     
+    public function testRunNullOutput()
+    {
+        $initialRowCount = $this->getConnection()->getRowCount('cmq');
+        $worker = $this->getMockBuilder(DoctrineWorker::class)
+            ->disableOriginalConstructor()
+            ->getMock();
+        $connection = $this->getDoctrineConnection();
+        $runner = new DoctrineWorkerRunner($worker, $connection, 'cmq', 'default');
+        $worker->expects($this->exactly($initialRowCount-1))
+            ->method('process');
+        
+        $runner->run(array('run_times' => $initialRowCount, 'sleep_intervals' => array(0,0)));
+        $this->assertEquals(1, $this->getConnection()->getRowCount('cmq'));
+    }    
+    
     public function testRunEmpty()
     {
         $worker = $this->getMockBuilder(DoctrineWorker::class)

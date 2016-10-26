@@ -17,6 +17,7 @@ use Gendoria\CommandQueue\Worker\WorkerRunnerInterface;
 use Gendoria\CommandQueueDoctrineDriverBundle\Worker\Exception\FetchException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
+use Symfony\Component\Console\Output\NullOutput;
 use Symfony\Component\Console\Output\OutputInterface;
 
 /**
@@ -98,7 +99,7 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
      * @param string $tableName
      * @param string $pool
      */
-    function __construct(DoctrineWorker $worker, Connection $connection, $tableName, $pool, LoggerInterface $logger = null)
+    public function __construct(DoctrineWorker $worker, Connection $connection, $tableName, $pool, LoggerInterface $logger = null)
     {
         $this->worker = $worker;
         $this->connection = $connection;
@@ -109,6 +110,9 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
 
     public function run(array $options, OutputInterface $output = null)
     {
+        if (!$output) {
+            $output = new NullOutput();
+        }
         $this->options = $options;
         $runTimes = !empty($options['run_times']) ? (int)$options['run_times'] : null;
         $output->writeln(sprintf("Worker run with options: %s", print_r($options, true)));
@@ -145,7 +149,7 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
      * Fetch next command data to process.
      * 
      * @param OutputInterface $output
-     * @return array|false
+     * @return array|boolean
      * @throws FetchException Thrown, when fetch failed permanently.
      */
     private function fetchNext(OutputInterface $output)
@@ -203,7 +207,7 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
             $sql = $platform->modifyLimitQuery($sqlProto, 1) . " " . $platform->getWriteLockSQL();
             $row = $this->connection->fetchAssoc($sql, array(0, $this->pool, new DateTime()), array('integer', 'string', 'datetime'));
 
-            if (!$row) {
+            if (empty($row)) {
                 $this->connection->commit();
                 return $row;
             }
