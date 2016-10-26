@@ -14,6 +14,7 @@ use Doctrine\DBAL\DBALException;
 use Doctrine\DBAL\LockMode;
 use Exception;
 use Gendoria\CommandQueue\Worker\WorkerRunnerInterface;
+use Gendoria\CommandQueueDoctrineDriverBundle\Worker\Exception\FetchException;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -81,6 +82,13 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
      * @var integer
      */
     private $failedFetches = 0;
+    
+    /**
+     * Current options.
+     * 
+     * @var array
+     */
+    private $options = array();
 
     /**
      * Class constructor.
@@ -101,14 +109,18 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
 
     public function run(array $options, OutputInterface $output = null)
     {
+        $this->options = $options;
+        $runTimes = !empty($options['run_times']) ? (int)$options['run_times'] : null;
         $output->writeln(sprintf("Worker run with options: %s", print_r($options, true)));
         $this->logger->debug(sprintf("Worker run with options: %s", print_r($options, true)));
         
-        $this->connection->setAutoCommit(false);
         $this->connection->setTransactionIsolation(Connection::TRANSACTION_SERIALIZABLE);
         
         while ($this->runIteration($output)) {
             $this->logger->debug('Doctrine worker tick.');
+            if ($runTimes !== null && --$runTimes == 0) {
+                break;
+            }
         }
     }
     
@@ -134,16 +146,16 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
      * 
      * @param OutputInterface $output
      * @return array|false
-     * @throws Exception\FetchException Thrown, when fetch failed permanently.
+     * @throws FetchException Thrown, when fetch failed permanently.
      */
     private function fetchNext(OutputInterface $output)
     {
         try {
             //Get one new row for update
             return $this->fetchNextCommandData();
-        } catch (Exception\FetchException $e) {
+        } catch (FetchException $e) {
             $this->logger->error('Exception while processing message.', array($e));
-            $output->writeln(sprintf("<error>Error when processing message: %s</error>\n%s", $e->getMessage(), $e->getTraceAsString()));
+            $output->writeln(sprintf("<error>Error when processing message: %s</error>\n%s\n\n%s", $e->getMessage(), $e->getTraceAsString(), $e->getPrevious()->getTraceAsString()));
             if ($this->failedFetches > self::MAX_FAILED_FETCHES) {
                 $output->writeln("<error>Too many consequent fetch errors - exiting.</error>");
                 throw $e;
@@ -167,7 +179,7 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
                 $output->writeln(sprintf("<error>Command failed too many times, discarding.</error>"));
                 $this->connection->delete($this->tableName, array('id' => $commandData['id']));
             } else {
-                $this->updateProcessed($commandData['id'], false, $commandData['failed_no']++);
+                $this->setProcessedFailure($commandData['id'], $commandData['failed_no']+1);
             }
         }
     }
@@ -176,7 +188,7 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
      * Fetch next command data.
      * 
      * @return array|boolean Array with command data, if there are pending commands; false otherwise.
-     * @throws Exception\FetchException Thrown, when fetch resulted in an error (lock impossible).
+     * @throws FetchException Thrown, when fetch resulted in an error (lock impossible).
      */
     private function fetchNextCommandData()
     {
@@ -185,7 +197,8 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
             $this->connection->beginTransaction();
             $sqlProto = "SELECT * "
                 . " FROM " . $platform->appendLockHint($this->tableName, LockMode::PESSIMISTIC_WRITE)
-                . " WHERE processed = ? AND pool = ? AND process_after >= ? "
+                . " WHERE processed = ? AND pool = ? AND process_after <= ? "
+                . " ORDER BY id ASC"
             ;
             $sql = $platform->modifyLimitQuery($sqlProto, 1) . " " . $platform->getWriteLockSQL();
             $row = $this->connection->fetchAssoc($sql, array(0, $this->pool, new DateTime()), array('integer', 'string', 'datetime'));
@@ -195,7 +208,7 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
                 return $row;
             }
 
-            $rows = $this->updateProcessed($row['id'], true, $row['failed_no']);
+            $rows = $this->setProcessed($row['id']);
 
             if ($rows !== 1) {
                 throw new DBALException("Race condition detected. Aborting.");
@@ -206,7 +219,7 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
         } catch (Exception $e) {
             $this->connection->rollBack();
             $this->failedFetches++;
-            throw new Exception\FetchException("Exception while fetching data.", 500, $e);
+            throw new FetchException("Exception while fetching data: ".$e->getMessage(), 500, $e);
         }
     }
     
@@ -219,39 +232,59 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
      */
     private function sleep()
     {
-        usleep(mt_rand(3000000, 6000000));
+        $sleepIntervals = !empty($this->options['sleep_intervals']) 
+            ? $this->options['sleep_intervals'] 
+            : array(3000000, 6000000);
+        usleep(mt_rand($sleepIntervals[0], $sleepIntervals[1]));
+    }
+    
+    /**
+     * Set processed status for row.
+     * 
+     * @param integer $id
+     * @return integer
+     */
+    private function setProcessed($id)
+    {
+        $parameters = array(
+            'processed' => true,
+            'id' => (int)$id,
+        );
+        $types = array(
+            'processed' => 'boolean',
+            'id' => 'smallint'
+        );
+        $updateSql = "UPDATE " . $this->tableName
+            . " SET processed = :processed"
+            . " WHERE id = :id";
+        return $this->connection->executeUpdate($updateSql, $parameters, $types);
     }
     
     /**
      * Update processed status for row.
      * 
      * @param integer $id
-     * @param boolean $isBeingProcessed
      * @param integer $failedRetries
      * @return integer
      */
-    private function updateProcessed($id, $isBeingProcessed, $failedRetries = 0)
+    private function setProcessedFailure($id, $failedRetries)
     {
         $parameters = array(
-            (int)(bool)$isBeingProcessed,
-            (int)$id,
-            (int)$failedRetries,
+            'processed' => false,
+            'failed_no' => (int)$failedRetries,
+            'id' => (int)$id,
+            'process_after' => new DateTime('@'.(time()+20*$failedRetries)),
         );
         $types = array(
-            'boolean',
-            'integer',
-            'smallint'
+            'processed' => 'boolean',
+            'failed_no' => 'integer',
+            'id' => 'smallint',
+            'process_after' => 'datetime',
         );
-        if ($failedRetries > 0) {
-            $processAfter = ", process_after = ?";
-            $parameters[] = new DateTime(time()+20*$failedRetries);
-            $types[] = "datetime";
-        } else {
-            $processAfter = "";
-        }
         $updateSql = "UPDATE " . $this->tableName
-            . " SET processed = ?, failed_no = ?" . $processAfter
-            . " WHERE id = ?";
+            . " SET processed = :processed, failed_no = :failed_no, process_after = :process_after"
+            . " WHERE id = :id";
         return $this->connection->executeUpdate($updateSql, $parameters, $types);
     }
+    
 }

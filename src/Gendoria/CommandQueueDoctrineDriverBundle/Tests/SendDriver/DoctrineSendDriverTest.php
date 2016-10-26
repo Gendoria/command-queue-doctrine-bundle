@@ -2,7 +2,6 @@
 
 namespace Gendoria\CommandQueueDoctrineDriverBundle\Tests\SendDriver;
 
-use DateTime;
 use Gendoria\CommandQueue\Command\CommandInterface;
 use Gendoria\CommandQueue\Serializer\SerializedCommandData;
 use Gendoria\CommandQueue\Serializer\SerializerInterface;
@@ -34,7 +33,7 @@ class DoctrineSendDriverTest extends DbTestCase
         $expectedTable = $this->createArrayDataSet([
             'cmq' => [
                 [
-                    'id' => 2,
+                    'id' => $initialRowCount+1,
                     'command_class' => get_class($command),
                     'command' => '{param1: 1}',
                     'pool' => 'default',

@@ -2,6 +2,8 @@
 
 namespace Gendoria\CommandQueueDoctrineDriverBundle\Tests;
 
+use Doctrine\DBAL\Connection;
+use Doctrine\DBAL\DriverManager;
 use PDO;
 use PHPUnit_Extensions_Database_DataSet_IDataSet;
 use PHPUnit_Extensions_Database_DataSet_YamlDataSet;
@@ -34,7 +36,6 @@ class DbTestCase extends PHPUnit_Extensions_Database_TestCase
             }
             $this->conn = $this->createDefaultDBConnection(self::$pdo, $GLOBALS['DB_DBNAME']);
         }
-
         return $this->conn;
     }
 
@@ -47,11 +48,15 @@ class DbTestCase extends PHPUnit_Extensions_Database_TestCase
         return new PHPUnit_Extensions_Database_DataSet_YamlDataSet($path);
     }
     
+    /**
+     * Get Doctrine connection
+     * @return Connection
+     */
     protected function getDoctrineConnection()
     {
         $params = array(
             'pdo' => $this->getConnection()->getConnection(),
         );
-        return \Doctrine\DBAL\DriverManager::getConnection($params);
+        return DriverManager::getConnection($params);
     }
 }
