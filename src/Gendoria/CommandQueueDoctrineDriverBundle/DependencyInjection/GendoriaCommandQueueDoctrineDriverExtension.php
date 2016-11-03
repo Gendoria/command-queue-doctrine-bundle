@@ -57,6 +57,7 @@ class GendoriaCommandQueueDoctrineDriverExtension extends Extension
             $this->prepareNewWorker($container, $driverId, $driver, $serializer);
             $this->prepareNewWorkerRunner($container, $driverId, $driver, $connectionService);
         }
+        $container->setParameter('gendoria_command_queue_doctrine_driver.drivers', $config['drivers']);
     }
     
     private function prepareSendDriver(ContainerBuilder $container, $driverId, $driver, $connectionService, $serializer)

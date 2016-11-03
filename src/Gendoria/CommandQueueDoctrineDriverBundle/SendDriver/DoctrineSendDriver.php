@@ -77,7 +77,7 @@ class DoctrineSendDriver implements SendDriverInterface
         );
         $types = array(
             'string',
-            'text',
+            'blob',
             'string',
             'integer',
             'boolean',
