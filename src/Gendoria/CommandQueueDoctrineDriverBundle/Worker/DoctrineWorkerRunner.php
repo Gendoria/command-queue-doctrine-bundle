@@ -200,27 +200,17 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
      */
     private function fetchNextCommandData()
     {
-        $platform = $this->connection->getDatabasePlatform();
         try {
             $this->connection->beginTransaction();
-            $sqlProto = "SELECT * "
-                . " FROM " . $platform->appendLockHint($this->tableName, LockMode::PESSIMISTIC_WRITE)
-                . " WHERE processed = ? AND pool = ? AND process_after <= ? "
-                . " ORDER BY id ASC"
-            ;
-            $sql = $platform->modifyLimitQuery($sqlProto, 1) . " " . $platform->getWriteLockSQL();
-            $row = $this->connection->fetchAssoc($sql, array(0, $this->pool, new DateTime()), array('integer', 'string', 'datetime'));
+            $row = $this->connection->fetchAssoc($this->prepareFetchNextSql(), array(0, $this->pool, new DateTime()), array('integer', 'string', 'datetime'));
 
             if (empty($row)) {
                 $this->connection->commit();
-                return $row;
+                return false;
             }
 
-            $rows = $this->setProcessed($row['id']);
-
-            if ($rows !== 1) {
-                throw new DBALException("Race condition detected. Aborting.");
-            }
+            $this->setProcessed($row['id']);
+            
             $this->connection->commit();
             $this->failedFetches = 0;
             return $row;
@@ -229,6 +219,17 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
             $this->failedFetches++;
             throw new FetchException("Exception while fetching data: ".$e->getMessage(), 500, $e);
         }
+    }
+    
+    private function prepareFetchNextSql()
+    {
+        $platform = $this->connection->getDatabasePlatform();
+        $sqlProto = "SELECT * "
+            . " FROM " . $platform->appendLockHint($this->tableName, LockMode::PESSIMISTIC_WRITE)
+            . " WHERE processed = ? AND pool = ? AND process_after <= ? "
+            . " ORDER BY id ASC"
+        ;
+        return $platform->modifyLimitQuery($sqlProto, 1) . " " . $platform->getWriteLockSQL();
     }
     
     /**
@@ -247,7 +248,8 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
      * Set processed status for row.
      * 
      * @param integer $id
-     * @return integer
+     * @return integer Number of affected rows.
+     * @throws DBALException Thrown, if race condition has been detected or other database error occurred.
      */
     private function setProcessed($id)
     {
@@ -262,7 +264,9 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
         $updateSql = "UPDATE " . $this->tableName
             . " SET processed = :processed"
             . " WHERE id = :id";
-        return $this->connection->executeUpdate($updateSql, $parameters, $types);
+        if ($this->connection->executeUpdate($updateSql, $parameters, $types) !== 1) {
+            throw new DBALException("Race condition detected. Aborting.");
+        }
     }
     
     /**
@@ -298,9 +302,6 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
     
     private function checkRunTimes()
     {
-        if ($this->options['run_times'] !== null && $this->options['run_times']-- == 0) {
-            return false;
-        }
-        return true;
+        return !($this->options['run_times'] !== null && $this->options['run_times']-- == 0);
     }
 }
