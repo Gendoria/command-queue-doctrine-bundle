@@ -248,7 +248,7 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
      * Set processed status for row.
      * 
      * @param integer $id
-     * @return integer Number of affected rows.
+     * @return void
      * @throws DBALException Thrown, if race condition has been detected or other database error occurred.
      */
     private function setProcessed($id)
