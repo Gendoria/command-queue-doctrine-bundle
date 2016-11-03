@@ -101,14 +101,44 @@ gendoria_command_queue:
             send_driver: '@gendoria_command_queue_doctrine_driver.driver.poolname'
 ```
 
+### Step 5: Create database schema
+
+Bundle provides Symfony command to create appropriate database schema. To run it, type
+
+Symfony 2.x:
+
+```console
+$ app/console cmq:doctrine:schema-create
+```
+
+Symfony 3.x:
+
+```console
+$ bin/console cmq:doctrine:schema-create
+```
+
+This command will check your configuration for database connections and queue tables. If any of the tables
+is missing in database, it will try to create it. The command will not touch existing tables, 
+so it is safe to run it multiple times.
+
+On the other hand, it will not (at the moment) check database for schema changes and update them.
+
 ## Usage
 
 To start receiving commands for your pool, you have to start one rabbitmq bundle worker process.
 
-The command to do that is:
+The command to do that is
+
+Symfony 2.x:
 
 ```console
 $ app/console cmq:worker:run doctrine.poolname
+```
+
+Symfony 3.x:
+
+```console
+$ bin/console cmq:worker:run doctrine.poolname
 ```
 
 Where `poolname` is the pool name you defined in `pools` section of configuration.
