@@ -90,6 +90,12 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
      * @var array
      */
     private $options = array();
+    
+    private $optionsProto = array(
+        'run_times' => null,
+        'exit_if_empty' => false,
+        'sleep_intervals' => array(3000000, 6000000),
+    );
 
     /**
      * Class constructor.
@@ -113,27 +119,25 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
         if (!$output) {
             $output = new NullOutput();
         }
-        $this->options = $options;
-        $runTimes = !empty($options['run_times']) ? (int)$options['run_times'] : null;
-        $output->writeln(sprintf("Worker run with options: %s", print_r($options, true)));
-        $this->logger->debug(sprintf("Worker run with options: %s", print_r($options, true)));
+        $this->prepareOptions($options);
+        $output->writeln(sprintf("Worker run with options: %s", print_r($this->options, true), OutputInterface::VERBOSITY_VERBOSE));
+        $this->logger->debug(sprintf("Worker run with options: %s", print_r($this->options, true)));
         
         $this->connection->setTransactionIsolation(Connection::TRANSACTION_SERIALIZABLE);
         
-        while ($this->runIteration($output)) {
+        while ($this->checkRunTimes() && $this->runIteration($output, (bool)$this->options['exit_if_empty'])) {
             $this->logger->debug('Doctrine worker tick.');
-            if ($runTimes !== null && --$runTimes == 0) {
-                break;
-            }
         }
     }
     
-    private function runIteration(OutputInterface $output)
+    private function runIteration(OutputInterface $output, $exitIfEmpty = false)
     {
         try {
             $commandData = $this->fetchNext($output);
             if (is_array($commandData)) {
                 $this->processNext($commandData, $output);
+            } elseif ($exitIfEmpty) {
+                return false;
             } else {
                 $output->writeln("No messages to process yet.", OutputInterface::VERBOSITY_DEBUG);
                 //Sleep to prevent hammering database
@@ -236,10 +240,7 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
      */
     private function sleep()
     {
-        $sleepIntervals = !empty($this->options['sleep_intervals']) 
-            ? $this->options['sleep_intervals'] 
-            : array(3000000, 6000000);
-        usleep(mt_rand($sleepIntervals[0], $sleepIntervals[1]));
+        usleep(mt_rand($this->options['sleep_intervals'][0], $this->options['sleep_intervals'][1]));
     }
     
     /**
@@ -291,4 +292,15 @@ class DoctrineWorkerRunner implements WorkerRunnerInterface
         return $this->connection->executeUpdate($updateSql, $parameters, $types);
     }
     
+    private function prepareOptions($options) {
+        $this->options = array_merge($this->optionsProto, $options);
+    }
+    
+    private function checkRunTimes()
+    {
+        if ($this->options['run_times'] !== null && $this->options['run_times']-- == 0) {
+            return false;
+        }
+        return true;
+    }
 }

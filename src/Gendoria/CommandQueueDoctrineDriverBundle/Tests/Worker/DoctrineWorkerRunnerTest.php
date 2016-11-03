@@ -100,7 +100,7 @@ class DoctrineWorkerRunnerTest extends DbTestCase
         $runner = new DoctrineWorkerRunner($worker, $connection, 'cmq', 'default');
         $output = new BufferedOutput(Output::VERBOSITY_DEBUG);
         
-        $runner->run(array('run_times' => 1, 'sleep_intervals' => array(0,0)), $output);
+        $runner->run(array('exit_if_empty' => 1, 'sleep_intervals' => array(0,0)), $output);
         $fetchedOutput = $output->fetch();
         $this->assertNotContains('Processing command', $fetchedOutput);
         $this->assertNotContains('Exception while fetching data', $fetchedOutput);
